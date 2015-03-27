@@ -9,13 +9,30 @@ type PxiVal interface {
 	fmt.Stringer
 }
 
-type PxiBuiltin func(*PxiState, *PxiEnv, []PxiVal) (PxiVal, error)
+type PxiFn struct {
+	env  *PxiEnv
+	args []PxiSym
+	body []PxiVal
+}
+
+func (PxiFn) String() string { return "function" }
+
+type PxiBuiltin func(*PxiState, *PxiEnv, *PxiList) (PxiVal, error)
 
 func (PxiBuiltin) String() string { return "builtin" }
 
 type PxiSym string
 
 func (s PxiSym) String() string { return string(s) }
+
+type PxiBool bool
+
+func (b PxiBool) String() string {
+	if !b {
+		return "false"
+	}
+	return "true"
+}
 
 type PxiNum int64
 
@@ -42,6 +59,24 @@ func (l *PxiList) String() string {
 	}
 	buff.WriteString(")")
 	return buff.String()
+}
+
+func (l *PxiList) Len() int {
+	r := 0
+	for l != nil {
+		r += 1
+		l = l.tail
+	}
+	return r
+}
+
+func (l *PxiList) ToSlice() []PxiVal {
+	var r []PxiVal
+	for l != nil {
+		r = append(r, l.val)
+		l = l.tail
+	}
+	return r
 }
 
 func (l *PxiList) Reverse() *PxiList {

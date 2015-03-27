@@ -61,38 +61,54 @@ func (ps *PxiState) Eval(env *PxiEnv, v PxiVal) (PxiVal, error) {
 		if err != nil {
 			return nil, err
 		}
-		v = v.tail
-		var args []PxiVal
-		for v != nil {
-			arg := v.val
-			args = append(args, arg)
-			v = v.tail
-		}
-		return ps.Apply(env, fn, args)
+		return ps.Apply(env, fn, v.tail)
 	case PxiSym:
 		return env.Lookup(string(v))
-	case PxiNum:
-		return v, nil
 	}
-	panic("internal error")
+	return v, nil
 }
 
-func (ps *PxiState) EvalSlice(env *PxiEnv, vals []PxiVal) ([]PxiVal, error) {
+func (ps *PxiState) EvalList(env *PxiEnv, vals *PxiList) ([]PxiVal, error) {
 	var ret []PxiVal
-	for _, v := range vals {
-		r, err := ps.Eval(env, v)
+	for vals != nil {
+		r, err := ps.Eval(env, vals.val)
 		if err != nil {
 			return nil, err
 		}
 		ret = append(ret, r)
+		vals = vals.tail
 	}
 	return ret, nil
 }
 
-func (ps *PxiState) Apply(e *PxiEnv, fn PxiVal, args []PxiVal) (PxiVal, error) {
+func (ps *PxiState) Apply(env *PxiEnv, fn PxiVal, args *PxiList) (PxiVal, error) {
+	var err error
 	switch fn := fn.(type) {
+	case *PxiFn:
+		argnames := fn.args
+		newenv := NewEnv(fn.env)
+		if len(argnames) != args.Len() {
+			return nil, fmt.Errorf("incorrect number of args")
+		}
+		for idx := range argnames {
+			name := argnames[idx]
+			argval, err := ps.Eval(env, args.val)
+			if err != nil {
+				return nil, err
+			}
+			newenv.Define(string(name), argval)
+			args = args.tail
+		}
+		var ret PxiVal
+		for _, expr := range fn.body {
+			ret, err = ps.Eval(newenv, expr)
+			if err != nil {
+				return nil, err
+			}
+		}
+		return ret, nil
 	case PxiBuiltin:
-		return fn(ps, e, args)
+		return fn(ps, env, args)
 	}
 	return nil, fmt.Errorf("Cannot call %T", fn)
 }

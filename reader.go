@@ -12,11 +12,6 @@ type PxiReader struct {
 	br *bufio.Reader
 }
 
-func Read(r io.Reader) (PxiVal, error) {
-	pxir := NewReader(r)
-	return pxir.Read()
-}
-
 func NewReader(r io.Reader) *PxiReader {
 	br := bufio.NewReader(r)
 	return &PxiReader{
